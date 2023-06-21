@@ -98,6 +98,15 @@ app.put('/items/:id', async (req, res) => {
   res.json(item);
 });
 
+/**
+ * Deletes an item
+ */
+app.delete('/items/:id', async (req, res) => {
+  const { id } = req.params;
+  await knex('items').del().where({ id });
+  res.json({ success: true });
+});
+
 
 // As an inventory manager I want to be able to create an account so that I can track my inventory.
 
