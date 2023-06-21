@@ -43,19 +43,12 @@ app.listen(port, () => {
 })
 
 /**
- * Gets all users
+ * Gets the current user if authenticated
  */
-app.get('/users', async (req, res) => {
-  const users = await knex('users').select('*');
-  res.json(users);
-});
-
-/**
- * Gets a single user by id
- */
-app.get('/users/:id', async (req, res) => {
-  const { id } = req.params;
-  const [user] = await knex('users').select('*').where({ id });
+app.get('/user', isAuthenticated, async (req, res) => {
+  const { userId } = req.session;
+  const [user] = await knex('users').select('*').where({ id: userId });
+  delete user.password;
   res.json(user);
 });
 
