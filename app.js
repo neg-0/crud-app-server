@@ -3,6 +3,9 @@ const express = require('express')
 const app = express()
 const port = 3000
 
+const bcrypt = require('bcrypt');
+const SALT_ROUNDS = 10;
+
 const knex = require('knex')({
   client: 'pg',
   connection: {
@@ -40,10 +43,55 @@ app.get('/users/:id', async (req, res) => {
 /**
  * Creates a new user
  */
-app.post('/users', async (req, res) => {
+app.post('/register', async (req, res) => {
   const { first_name, last_name, username, password } = req.body;
-  const [user] = await knex('users').insert({ first_name, last_name, username, password }).returning('*');
-  res.json(user);
+
+  // Verify that all fields are provided
+  if (!first_name || !last_name || !username || !password) {
+    return res.status(400).json({ error: 'Must provide first name, last name, username, and password' });
+  }
+
+  // Verify that username is unique
+  const [existingUser] = await knex('users').select('*').where({ username });
+  if (existingUser) {
+    return res.status(400).json({ success: false, error: 'Username already exists' });
+  }
+
+  // Salt the password
+  const salt = bcrypt.genSaltSync(SALT_ROUNDS);
+
+  // Hash the password
+  const hashedPassword = bcrypt.hashSync(password, salt);
+
+  const [user] = await knex('users').insert({ first_name, last_name, username, password: hashedPassword }).returning('*');
+  if (!user) {
+    return res.status(500).json({ error: 'Unable to create user' });
+  }
+
+  res.json({ success: true });
+});
+
+app.post('/login', async (req, res) => {
+  const { username, password } = req.body;
+
+  // Verify that all fields are provided
+  if (!username || !password) {
+    return res.status(400).json({ success: false, error: 'Must provide username and password' });
+  }
+
+  // Verify that username exists
+  const [user] = await knex('users').select('*').where({ username });
+  if (!user) {
+    return res.status(400).json({ success: false, error: 'Username does not exist' });
+  }
+
+  // Verify that password is correct
+  const passwordMatch = bcrypt.compareSync(password, user.password);
+  if (!passwordMatch) {
+    return res.status(400).json({ success: false, error: 'Password is incorrect' });
+  }
+
+  res.json({ success: true });
 });
 
 /**
