@@ -1,5 +1,7 @@
 require('dotenv').config()
 const express = require('express')
+const cookieParser = require("cookie-parser");
+const session = require('express-session')
 const app = express()
 const port = 3000
 
@@ -18,6 +20,23 @@ const knex = require('knex')({
 });
 
 app.use(express.json());
+app.use(cookieParser());
+
+const oneDay = 1000 * 60 * 60 * 24;
+
+if (!process.env.SESSION_SECRET) {
+  console.error('SESSION_SECRET not set');
+  process.exit(1);
+}
+
+app.set('trust proxy', 1);
+
+app.use(session({
+  secret: process.env.SESSION_SECRET,
+  saveUninitialized: true,
+  cookie: { maxAge: oneDay },
+  resave: false
+}));
 
 app.listen(port, () => {
   console.log(`CRUD app listening on port ${port}`)
@@ -39,6 +58,19 @@ app.get('/users/:id', async (req, res) => {
   const [user] = await knex('users').select('*').where({ id });
   res.json(user);
 });
+
+/**
+ * Middleware to check if user is authenticated
+ */
+function isAuthenticated(req, res, next) {
+  console.log(req.session);
+  if (req.session.userId) next()
+  else {
+    req.session.error = 'Access denied!'
+    res.status(401).json({ success: false, error: 'Access denied!' })
+    next('route')
+  }
+}
 
 /**
  * Creates a new user
@@ -91,6 +123,14 @@ app.post('/login', async (req, res) => {
     return res.status(400).json({ success: false, error: 'Password is incorrect' });
   }
 
+  // Set session user id
+  req.session.userId = user.id;
+
+  res.json({ success: true });
+});
+
+app.get('/logout', async (req, res) => {
+  req.session.destroy();
   res.json({ success: true });
 });
 
@@ -123,7 +163,7 @@ app.get('/items/user/:id', async (req, res) => {
 /**
  * Creates a new item
  */
-app.post('/items', async (req, res) => {
+app.post('/items', isAuthenticated, async (req, res) => {
   const { item_name, description, quantity, user_id } = req.body;
   const [item] = await knex('items').insert({ item_name, description, quantity, user_id }).returning('*');
   res.json(item);
@@ -132,7 +172,7 @@ app.post('/items', async (req, res) => {
 /**
  * Updates an item
  */
-app.put('/items/:id', async (req, res) => {
+app.put('/items/:id', isAuthenticated, async (req, res) => {
   const { id } = req.params;
   const { item_name, description, quantity, user_id } = req.body;
   const updatedItem = { item_name, description, quantity, user_id };
@@ -149,7 +189,7 @@ app.put('/items/:id', async (req, res) => {
 /**
  * Deletes an item
  */
-app.delete('/items/:id', async (req, res) => {
+app.delete('/items/:id', isAuthenticated, async (req, res) => {
   const { id } = req.params;
   await knex('items').del().where({ id });
   res.json({ success: true });
