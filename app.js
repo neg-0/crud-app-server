@@ -16,13 +16,87 @@ const knex = require('knex')({
 
 app.use(express.json());
 
-app.get('/', (req, res) => {
-  res.send('Hello World!')
+app.listen(port, () => {
+  console.log(`CRUD app listening on port ${port}`)
 })
 
-app.listen(port, () => {
-  console.log(`Example app listening on port ${port}`)
-})
+/**
+ * Gets all users
+ */
+app.get('/users', async (req, res) => {
+  const users = await knex('users').select('*');
+  res.json(users);
+});
+
+/**
+ * Gets a single user by id
+ */
+app.get('/users/:id', async (req, res) => {
+  const { id } = req.params;
+  const [user] = await knex('users').select('*').where({ id });
+  res.json(user);
+});
+
+/**
+ * Creates a new user
+ */
+app.post('/users', async (req, res) => {
+  const { first_name, last_name, username, password } = req.body;
+  const [user] = await knex('users').insert({ first_name, last_name, username, password }).returning('*');
+  res.json(user);
+});
+
+/**
+ * Gets all items
+ */
+app.get('/items', async (req, res) => {
+  const items = await knex('items').select('*');
+  res.json(items);
+});
+
+/**
+ * Gets a single item by id
+ */
+app.get('/items/:id', async (req, res) => {
+  const { id } = req.params;
+  const [item] = await knex('items').select('*').where({ id });
+  res.json(item);
+});
+
+/**
+ * Gets a list of items by user id
+ */
+app.get('/items/user/:id', async (req, res) => {
+  const { id } = req.params;
+  const items = await knex('items').select('*').where({ user_id: id });
+  res.json(items);
+});
+
+/**
+ * Creates a new item
+ */
+app.post('/items', async (req, res) => {
+  const { item_name, description, quantity, user_id } = req.body;
+  const [item] = await knex('items').insert({ item_name, description, quantity, user_id }).returning('*');
+  res.json(item);
+});
+
+/**
+ * Updates an item
+ */
+app.put('/items/:id', async (req, res) => {
+  const { id } = req.params;
+  const { item_name, description, quantity, user_id } = req.body;
+  const updatedItem = { item_name, description, quantity, user_id };
+
+  // If all fields are undefined, return an error
+  if (Object.values(updatedItem).every((value) => value === undefined)) {
+    return res.status(400).json({ error: 'Must provide at least one field to update' });
+  }
+
+  const [item] = await knex('items').update(updatedItem).where({ id }).returning('*');
+  res.json(item);
+});
 
 
 // As an inventory manager I want to be able to create an account so that I can track my inventory.
