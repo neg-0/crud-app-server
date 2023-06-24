@@ -2,6 +2,8 @@ require('dotenv').config()
 const express = require('express')
 const cookieParser = require("cookie-parser");
 const session = require('express-session')
+const pg = require('pg');
+const pgSession = require('connect-pg-simple')(session);
 const cors = require('cors');
 const app = express()
 const port = 3000
@@ -20,9 +22,21 @@ const knex = require('knex')({
   }
 });
 
+const pgPool = new pg.Pool({
+  // Insert your Postgres config here
+  user: process.env.DB_DEV_USER,
+  host: process.env.DB_DEV_HOST,
+  database: process.env.DB_DEV_NAME,
+  password: process.env.DB_DEV_PW,
+  port: process.env.DB_DEV_PORT,
+});
+
 app.use(express.json());
 app.use(cookieParser());
-app.use(cors());
+app.use(cors({
+  origin: 'http://localhost:5173',
+  credentials: true
+}));
 
 const oneDay = 1000 * 60 * 60 * 24;
 
@@ -34,9 +48,13 @@ if (!process.env.SESSION_SECRET) {
 app.set('trust proxy', 1);
 
 app.use(session({
+  store: new pgSession({
+    pool: pgPool,                // Connection pool
+    tableName: 'session'   // Use another table-name than the default "session" one
+  }),
   secret: process.env.SESSION_SECRET,
-  saveUninitialized: true,
-  cookie: { maxAge: oneDay },
+  saveUninitialized: false,
+  cookie: { secure: false, maxAge: oneDay },
   resave: false
 }));
 
@@ -58,11 +76,9 @@ app.get('/user', isAuthenticated, async (req, res) => {
  * Middleware to check if user is authenticated
  */
 function isAuthenticated(req, res, next) {
-  console.log(req.session);
   if (req.session.userId) next()
   else {
-    req.session.error = 'Access denied!'
-    res.status(401).json({ success: false, error: 'Access denied!' })
+    res.status(401).json({ error: 'Access denied!' })
     next('route')
   }
 }
@@ -81,7 +97,7 @@ app.post('/register', async (req, res) => {
   // Verify that username is unique
   const [existingUser] = await knex('users').select('*').where({ username });
   if (existingUser) {
-    return res.status(400).json({ success: false, error: 'Username already exists' });
+    return res.status(400).json({ error: 'Username already exists' });
   }
 
   // Salt the password
@@ -103,25 +119,27 @@ app.post('/login', async (req, res) => {
 
   // Verify that all fields are provided
   if (!username || !password) {
-    return res.status(400).json({ success: false, error: 'Must provide username and password' });
+    return res.status(400).json({ error: 'Must provide username and password' });
   }
 
   // Verify that username exists
   const [user] = await knex('users').select('*').where({ username });
   if (!user) {
-    return res.status(400).json({ success: false, error: 'Username does not exist' });
+    return res.status(400).json({ error: 'Username does not exist' });
   }
 
   // Verify that password is correct
   const passwordMatch = bcrypt.compareSync(password, user.password);
   if (!passwordMatch) {
-    return res.status(400).json({ success: false, error: 'Password is incorrect' });
+    return res.status(400).json({ error: 'Password is incorrect' });
   }
 
   // Set session user id
   req.session.userId = user.id;
 
-  res.json({ success: true });
+  delete user.password;
+
+  res.json(user);
 });
 
 app.get('/logout', async (req, res) => {
