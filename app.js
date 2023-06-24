@@ -2,6 +2,7 @@ require('dotenv').config()
 const express = require('express')
 const cookieParser = require("cookie-parser");
 const session = require('express-session')
+const cors = require('cors');
 const app = express()
 const port = 3000
 
@@ -21,6 +22,7 @@ const knex = require('knex')({
 
 app.use(express.json());
 app.use(cookieParser());
+app.use(cors());
 
 const oneDay = 1000 * 60 * 60 * 24;
 
