@@ -8,7 +8,7 @@ const cors = require('cors');
 const app = express()
 const port = 3000
 
-const bcrypt = require('bcrypt');
+const bcrypt = require('bcryptjs');
 const SALT_ROUNDS = 10;
 
 const knex = require('knex')({
