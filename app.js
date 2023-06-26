@@ -148,10 +148,43 @@ app.get('/logout', async (req, res) => {
 });
 
 /**
- * Gets all items
+ * Gets all items with additional params
  */
 app.get('/items', async (req, res) => {
-  const items = await knex('items').select('*');
+  let items = await knex('items').select('*');
+
+  // Transform the data based on params
+
+  // param: descLimit will truncate the description and add ellipses
+
+  const { descLimit } = req.query;
+
+  if (descLimit) {
+    items.forEach((item) => {
+      if (item.description.length > descLimit) {
+        item.description = item.description.slice(0, descLimit) + '...';
+      }
+    });
+  }
+
+  // Add a user field which is an object from the user database
+  const userIds = items.map((item) => item.user_id);
+  const users = await knex('users').select('*').whereIn('id', userIds);
+  items.forEach((item) => {
+    const user = users.find((user) => user.id === item.user_id);
+    delete user.password;
+    item.user = user;
+  });
+
+  // param: onlyMyItems will filter out items that aren't from the current user
+
+  const { onlyMyItems } = req.query;
+
+  if (onlyMyItems === "true") {
+    const { userId } = req.session;
+    items = items.filter((item) => item.user_id === userId);
+  }
+
   res.json(items);
 });
 
@@ -161,6 +194,23 @@ app.get('/items', async (req, res) => {
 app.get('/items/:id', async (req, res) => {
   const { id } = req.params;
   const [item] = await knex('items').select('*').where({ id });
+
+  // param: descLimit will truncate the description and add ellipses
+
+  const { descLimit } = req.query;
+
+  if (descLimit) {
+    if (item.description.length > descLimit) {
+      item.description = item.description.slice(0, descLimit) + '...';
+    }
+  }
+
+  //  Add a user field which is an object from the user database
+  const userId = item.user_id;
+  const [user] = await knex('users').select('*').where({ id: userId });
+  delete user.password;
+  item.user = user;
+
   res.json(item);
 });
 
@@ -196,6 +246,13 @@ app.put('/items/:id', isAuthenticated, async (req, res) => {
   }
 
   const [item] = await knex('items').update(updatedItem).where({ id }).returning('*');
+
+  //  Add a user field which is an object from the user database
+  const userId = item.user_id;
+  const [user] = await knex('users').select('*').where({ id: userId });
+  delete user.password;
+  item.user = user;
+
   res.json(item);
 });
 
