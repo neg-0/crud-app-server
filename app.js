@@ -193,6 +193,12 @@ app.get('/items', async (req, res) => {
  */
 app.get('/items/:id', async (req, res) => {
   const { id } = req.params;
+
+  // Verify that id is an integer
+  if (!Number.isInteger(parseInt(id))) {
+    return res.status(400).json({ error: 'Id must be an integer' });
+  }
+
   const [item] = await knex('items').select('*').where({ id });
 
   // param: descLimit will truncate the description and add ellipses
