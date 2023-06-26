@@ -114,6 +114,51 @@ app.post('/register', async (req, res) => {
   res.json({ success: true });
 });
 
+app.post('/change_password', isAuthenticated, async (req, res) => {
+  const { password } = req.body;
+
+  // Verify that all fields are provided
+  if (!password) {
+    return res.status(400).json({ error: 'Must provide password' });
+  }
+
+  // Salt the password
+  const salt = bcrypt.genSaltSync(SALT_ROUNDS);
+  const hashedPassword = bcrypt.hashSync(password, salt);
+  const { userId } = req.session;
+  const [user] = await knex('users').update({ password: hashedPassword }).where({ id: userId }).returning('*');
+  if (!user) {
+    return res.status(500).json({ error: 'Unable to change password' });
+  }
+
+  res.json({ success: true });
+});
+
+app.post('/change_user_data', isAuthenticated, async (req, res) => {
+  const { first_name, last_name, username } = req.body;
+
+  // Verify that all fields are provided
+  if (!first_name || !last_name || !username) {
+    return res.status(400).json({ error: 'Must provide first name, last name, and username' });
+  }
+
+  // Verify that username is unique or the same as it was
+  const [existingUser] = await knex('users').select('*').where({ username });
+  if (existingUser && username != existingUser.username) {
+    return res.status(400).json({ error: 'Username already exists' });
+  }
+
+  const { userId } = req.session;
+  const [user] = await knex('users').update({ first_name, last_name, username }).where({ id: userId }).returning('*');
+  if (!user) {
+    return res.status(500).json({ error: 'Unable to change user data' });
+  }
+
+  delete user.password;
+
+  res.json(user);
+});
+
 app.post('/login', async (req, res) => {
   const { username, password } = req.body;
 
