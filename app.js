@@ -68,6 +68,14 @@ app.listen(port, () => {
   console.log(`CRUD app listening on port ${port} in a ${process.env.NODE_ENV} environment`)
 })
 
+app.get('/', (req, res) => {
+  res.send(`<p>Welcome to the CRUD app backend!<br/>
+  ${app._router.stack.map(r => {
+    if (!r.route) return;
+    return `${Object.keys(r.route.methods).join(', ')} ${r.route.path}<br/>`;
+  })}</p>`)
+});
+
 /**
  * Gets the current user if authenticated
  */
