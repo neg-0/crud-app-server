@@ -56,12 +56,16 @@ app.use(session({
   }),
   secret: process.env.SESSION_SECRET,
   saveUninitialized: false,
-  cookie: { secure: true, maxAge: oneDay, sameSite: "none" },
+  cookie: {
+    secure: process.env.NODE_ENV === "production",
+    sameSite: process.env.NODE_ENV === "production" ? "none" : true,
+    maxAge: oneDay
+  },
   resave: false
 }));
 
 app.listen(port, () => {
-  console.log(`CRUD app listening on port ${port}`)
+  console.log(`CRUD app listening on port ${port} in a ${process.env.NODE_ENV} environment`)
 })
 
 /**
