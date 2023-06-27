@@ -299,9 +299,14 @@ app.put('/items/:id', isAuthenticated, async (req, res) => {
   }
 
   const [item] = await knex('items').update(updatedItem).where({ id }).returning('*');
+  const userId = item.user_id;
+
+  // Verify the user owns this item
+  if (userId != req.session.userId) {
+    return res.status(400).json({ error: 'You must be the owner of this item to update it' });
+  }
 
   //  Add a user field which is an object from the user database
-  const userId = item.user_id;
   const [user] = await knex('users').select('*').where({ id: userId });
   delete user.password;
   item.user = user;
