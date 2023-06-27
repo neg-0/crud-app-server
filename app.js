@@ -172,13 +172,13 @@ app.post('/login', async (req, res) => {
   // Verify that username exists
   const [user] = await knex('users').select('*').where({ username });
   if (!user) {
-    return res.status(400).json({ error: 'Username does not exist' });
+    return res.status(400).json({ error: 'Invalid username or password' });
   }
 
   // Verify that password is correct
   const passwordMatch = bcrypt.compareSync(password, user.password);
   if (!passwordMatch) {
-    return res.status(400).json({ error: 'Password is incorrect' });
+    return res.status(400).json({ error: 'Invalid username or password' });
   }
 
   // Set session user id
