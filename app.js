@@ -34,7 +34,7 @@ const pgPool = new pg.Pool({
 app.use(express.json());
 app.use(cookieParser());
 app.use(cors({
-  origin: ['http://localhost:5173', 'https://*.ondigitalocean.app'],
+  origin: ['http://localhost:5173', '/\.ondigitalocean\.app$/'],
   credentials: true,
   allowedHeaders: 'Content-Type, Origin, Accept',
   methods: 'GET, POST, PUT, DELETE, OPTIONS',
