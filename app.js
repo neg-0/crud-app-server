@@ -212,40 +212,68 @@ app.get('/logout', async (req, res) => {
 app.get('/items', async (req, res) => {
   let items = await knex('items').select('*');
 
-  // Transform the data based on params
-
   // param: descLimit will truncate the description and add ellipses
-
   const { descLimit } = req.query;
-
   if (descLimit) {
-    items.forEach((item) => {
-      if (item.description.length > descLimit) {
-        item.description = item.description.slice(0, descLimit) + '...';
-      }
-    });
+    items = truncateItems(items, descLimit);
   }
 
-  // Add a user field which is an object from the user database
+  // Add the user field
+  items = await addUserFields(items);
+
+  res.json(items);
+});
+
+/**
+ * Gets only the current user's items
+ */
+app.get('/my_items', isAuthenticated, async (req, res) => {
+  const { userId } = req.session;
+  let items = await knex('items').select('*').where({ user_id: userId });
+
+  // param: descLimit will truncate the description and add ellipses
+  const { descLimit } = req.query;
+  if (descLimit) {
+    items = truncateItems(items, descLimit);
+  }
+
+  // Add the user field
+  items = await addUserFields(items);
+
+  res.json(items);
+});
+
+function truncateItems(items, descLimit) {
+  const newItems = [];
+
+  items.forEach((item) => {
+    if (item.description.length > descLimit) {
+      item.description = item.description.slice(0, descLimit) + '...';
+    }
+    newItems.push(item);
+  });
+
+  return newItems;
+}
+
+/**
+ * Adds the user object to each item in the array
+ * @param {*} items 
+ */
+async function addUserFields(items) {
+  const newItems = [];
+
   const userIds = items.map((item) => item.user_id);
   const users = await knex('users').select('*').whereIn('id', userIds);
   items.forEach((item) => {
     const user = users.find((user) => user.id === item.user_id);
     delete user.password;
     item.user = user;
+    newItems.push(item);
   });
 
-  // param: onlyMyItems will filter out items that aren't from the current user
-
-  const { onlyMyItems } = req.query;
-
-  if (onlyMyItems === "true") {
-    const { userId } = req.session;
-    items = items.filter((item) => item.user_id === userId);
-  }
-
-  res.json(items);
-});
+  return newItems;
+}
 
 /**
  * Gets a single item by id
@@ -292,8 +320,25 @@ app.get('/items/user/:id', async (req, res) => {
  * Creates a new item
  */
 app.post('/items', isAuthenticated, async (req, res) => {
-  const { item_name, description, quantity, user_id } = req.body;
-  const [item] = await knex('items').insert({ item_name, description, quantity, user_id }).returning('*');
+  const { userId } = req.session;
+  const { item_name, description, quantity } = req.body;
+
+  // Verify the userId is provided
+  if (!userId) {
+    return res.status(500).json({ error: 'Invalid userId' });
+  }
+
+  // Verify that all fields are provided
+  if (!item_name || !description || !quantity) {
+    return res.status(400).json({ error: 'Must provide item name, description, and quantity' });
+  }
+
+  // Verify that quantity is an integer
+  if (!Number.isInteger(parseInt(quantity))) {
+    return res.status(400).json({ error: 'Quantity must be an integer' });
+  }
+
+  const [item] = await knex('items').insert({ item_name, description, quantity, user_id: userId }).returning('*');
   res.json(item);
 });
 
