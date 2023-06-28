@@ -160,8 +160,10 @@ app.post('/change_user_data', isAuthenticated, async (req, res) => {
   }
 
   // Verify that username is unique or the same as it was
-  const [existingUser] = await knex('users').select('*').where({ username });
-  if (existingUser && username != existingUser.username) {
+  const [loggedInUser] = await knex('users').select('username').where({ id: req.session.userId });
+  const [otherUser] = await knex('users').select('username').where({ username });
+
+  if ((loggedInUser.username !== username) && otherUser && (otherUser.username === username)) {
     return res.status(400).json({ error: 'Username already exists' });
   }
 
