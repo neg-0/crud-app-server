@@ -324,16 +324,19 @@ app.get('/items/user/:id', async (req, res) => {
  */
 app.post('/items', isAuthenticated, async (req, res) => {
   const { userId } = req.session;
-  const { item_name, description, quantity } = req.body;
+  let { item_name, description = "", quantity = 0 } = req.body;
+
+  // Trim the item name to remove whitespace
+  item_name = item_name.trim();
 
   // Verify the userId is provided
   if (!userId) {
     return res.status(500).json({ error: 'Invalid userId' });
   }
 
-  // Verify that all fields are provided
-  if (!item_name || !description || !quantity) {
-    return res.status(400).json({ error: 'Must provide item name, description, and quantity' });
+  // Verify that the item name is provided
+  if (!item_name || item_name === '') {
+    return res.status(400).json({ error: 'Must provide item name' });
   }
 
   // Verify that quantity is an integer
