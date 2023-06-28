@@ -350,7 +350,11 @@ app.post('/items', isAuthenticated, async (req, res) => {
  */
 app.put('/items/:id', isAuthenticated, async (req, res) => {
   const { id } = req.params;
-  const { item_name, description, quantity, user_id } = req.body;
+  let { item_name, description, quantity, user_id } = req.body;
+
+  // Trim the item name to remove whitespace
+  item_name = item_name.trim();
+
   const updatedItem = { item_name, description, quantity, user_id };
 
   // If all fields are undefined, return an error
@@ -358,13 +362,23 @@ app.put('/items/:id', isAuthenticated, async (req, res) => {
     return res.status(400).json({ error: 'Must provide at least one field to update' });
   }
 
-  const [item] = await knex('items').update(updatedItem).where({ id }).returning('*');
-  const userId = item.user_id;
+  // Verify that item name is not blank
+  if (!item_name || item_name === '') {
+    return res.status(400).json({ error: 'Must provide item name' });
+  }
+
+  // Verify that quantity is an integer
+  if (!Number.isInteger(parseInt(quantity))) {
+    return res.status(400).json({ error: 'Quantity must be an integer' });
+  }
 
   // Verify the user owns this item
+  const userId = user_id;
   if (userId != req.session.userId) {
     return res.status(400).json({ error: 'You must be the owner of this item to update it' });
   }
+
+  const [item] = await knex('items').update(updatedItem).where({ id }).returning('*');
 
   //  Add a user field which is an object from the user database
   const [user] = await knex('users').select('*').where({ id: userId });
