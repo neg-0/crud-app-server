@@ -125,6 +125,9 @@ app.post('/register', async (req, res) => {
     return res.status(500).json({ error: 'Unable to create user' });
   }
 
+  // Set the current session to this user
+  req.session.userId = user.id;
+
   res.json({ success: true });
 });
 
